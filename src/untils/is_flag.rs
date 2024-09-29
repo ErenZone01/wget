@@ -29,14 +29,14 @@ pub fn is_flag(flag: &str) -> Option<&str> {
     None
 }
 
-pub fn find_name_url(url : String) -> Option<String> {
-    let urls = add_http_if_missing(url.as_str());
-    let parts : Vec<&str> = urls.split("https://").collect();
-    if parts.len() == 2 && !parts[1].is_empty(){
-        return Some(parts[1].to_string());
-    }
-    None
-}
+// pub fn find_name_url(url : String) -> Option<String> {
+//     let urls = add_http_if_missing(url.as_str());
+//     let parts : Vec<&str> = urls.split("https://").collect();
+//     if parts.len() == 2 && !parts[1].is_empty(){
+//         return Some(parts[1].to_string());
+//     }
+//     None
+// }
 
 pub fn add_http_if_missing(url: &str) -> String {
     if !url.starts_with("http://") && !url.starts_with("https://") {

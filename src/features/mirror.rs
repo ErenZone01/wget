@@ -1,6 +1,6 @@
-use std::io::{copy, Write};
 use reqwest;
-use std::fs::{File, create_dir_all};
+use std::fs::{create_dir_all, File};
+use std::io::{copy, Write};
 
 use crate::untils::file::create_directory;
 
@@ -10,7 +10,7 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
     let response = reqwest::blocking::get(url).unwrap().text().unwrap();
     let indexpath = format!("./{path}/index.html");
     let mut dest_file = File::create(indexpath).expect("unable to create index file");
-    
+
     let mut updated_response = response.clone();
 
     let lines = response.split(">");
@@ -26,8 +26,7 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
 
                     if convert_links {
                         // Remplacer les liens absolus par des liens relatifs dans le HTML
-                        updated_response = updated_response.replace(&name, &format!(".{}",&name));
-
+                        updated_response = updated_response.replace(&name, &format!(".{}", &name));
                     }
                 }
             }
@@ -53,7 +52,10 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
 
                                 if convert_links {
                                     // Convertir les liens absolus en relatifs
-                                    updated_response = updated_response.replace(&relative_url, &format!("{}/{}", vec[i], vec[i + 1]));
+                                    updated_response = updated_response.replace(
+                                        &relative_url,
+                                        &format!("{}/{}", vec[i], vec[i + 1]),
+                                    );
                                 }
                                 break;
                             }
@@ -73,41 +75,43 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
             }
         }
 
-        if ((s.contains("a href") || s.contains("link href")) && !s.contains("http") && !s.contains(".com"))|| (s.contains("script") && s.contains("src")) {
+        if ((s.contains("a href") || s.contains("link href"))
+            && !s.contains("http")
+            && !s.contains(".com"))
+            || (s.contains("script") && s.contains("src"))
+        {
             let mut link = "";
-            if s.contains("href="){
-                if s.trim().split("href=").collect::<Vec<_>>().len() > 1{
-                    link= s.split("href=").collect::<Vec<_>>()[1];
+            if s.contains("href=") {
+                if s.trim().split("href=").collect::<Vec<_>>().len() > 1 {
+                    link = s.split("href=").collect::<Vec<_>>()[1];
                 }
-            }else if s.contains("src="){
-                if s.trim().split("src=").collect::<Vec<_>>().len() > 1{
-                    link= s.split("src=").collect::<Vec<_>>()[1];
+            } else if s.contains("src=") {
+                if s.trim().split("src=").collect::<Vec<_>>().len() > 1 {
+                    link = s.split("src=").collect::<Vec<_>>()[1];
                 }
             }
-           // println!("le link : {} ", link);
-            link = link.split("\"").collect::<Vec<_>>()[1];
+            // println!("le link : {} ", link);
+            if link.split("\"").collect::<Vec<_>>().len() > 1{
+                link = link.split("\"").collect::<Vec<_>>()[1];
+            }else{
+                if link.trim().is_empty(){
+                    continue;
+                }
+            }
             let mut destf;
-            // if link.split("/").collect::<Vec<_>>().len() > 1 {
-            //     let res = link.split("/").collect::<Vec<_>>();
-            //     let dir = format!("{}{}", path, res[0]);
-            //     create_dir_all(&dir).expect("unable to create directory");
-            //     destf = format!("./{}{}/{}", path, res[0], res[1]);
-            // } else {
-            //     destf = format!("./{}/{}", path, link);
-            // }
-            println!("link : {}", link);
             destf = format!("./{}{}", path.trim_end_matches("/"), link);
-            println!("dest {}",destf);
-            match create_directory(format!("{}/{}", path, link)){
-                Ok((file, filname)) =>{destf = filname},
-                Err(error) =>{println!("erreur lors de la creation de dossier : {}", error)}
+            match create_directory(format!("{}/{}", path, link)) {
+                Ok((_, filname)) => destf = filname,
+                Err(error) => {
+                    println!("erreur lors de la creation de dossier : {}", error)
+                }
             }
             let relative_url = format!("{}{}", url.clone(), link);
             download_a_file(relative_url.clone(), destf.clone());
 
             if convert_links {
                 // Conversion du lien dans le HTML
-                updated_response = updated_response.replace(link, &format!(".{}",&link));
+                updated_response = updated_response.replace(link, &format!(".{}", &link));
             }
         }
     }
