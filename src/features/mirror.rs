@@ -73,8 +73,9 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
             }
         }
 
-        if ((s.contains("a href") || s.contains("link href")) && !s.contains("http") && !s.contains(".com"))|| (s.contains("script") && s.contains("src")) {
+        if ((s.contains("a href") || s.contains("link href")) && !s.contains("http") && !s.contains(".com"))|| (s.contains("<script") && s.contains("src")) {
             let mut link = "";
+            let mut dened=false; 
             if s.contains("href="){
                 if s.trim().split("href=").collect::<Vec<_>>().len() > 1{
                     link= s.split("href=").collect::<Vec<_>>()[1];
@@ -84,31 +85,43 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
                     link= s.split("src=").collect::<Vec<_>>()[1];
                 }
             }
-           // println!("le link : {} ", link);
-            link = link.split("\"").collect::<Vec<_>>()[1];
-            let mut destf;
-            // if link.split("/").collect::<Vec<_>>().len() > 1 {
-            //     let res = link.split("/").collect::<Vec<_>>();
-            //     let dir = format!("{}{}", path, res[0]);
-            //     create_dir_all(&dir).expect("unable to create directory");
-            //     destf = format!("./{}{}/{}", path, res[0], res[1]);
-            // } else {
-            //     destf = format!("./{}/{}", path, link);
-            // }
-            println!("link : {}", link);
-            destf = format!("./{}{}", path.trim_end_matches("/"), link);
-            println!("dest {}",destf);
-            match create_directory(format!("{}/{}", path, link)){
-                Ok((file, filname)) =>{destf = filname},
-                Err(error) =>{println!("erreur lors de la creation de dossier : {}", error)}
-            }
-            let relative_url = format!("{}{}", url.clone(), link);
-            download_a_file(relative_url.clone(), destf.clone());
-
-            if convert_links {
-                // Conversion du lien dans le HTML
-                updated_response = updated_response.replace(link, &format!(".{}",&link));
-            }
+            if !link.is_empty(){
+            //    println!("le link ====== {} ======", link);
+               link = link.split("\"").collect::<Vec<_>>()[1];
+                // destf;
+               // if link.split("/").collect::<Vec<_>>().len() > 1 {
+               //     let res = link.split("/").collect::<Vec<_>>();
+               //     let dir = format!("{}{}", path, res[0]);
+               //     create_dir_all(&dir).expect("unable to create directory");
+               //     destf = format!("./{}{}/{}", path, res[0], res[1]);
+               // } else {
+               //     destf = format!("./{}/{}", path, link);
+               // }
+               // println!("link : {}", link);
+               let mut destf = format!("./{}{}", path.trim_end_matches("/"), link);
+               // println!("dest {}",destf);
+               match create_directory(format!("{}/{}", path, link)){
+                   Ok((_file, filname)) =>{
+                    destf = filname;
+                    dened=false;
+                },
+                   Err(error) =>{
+                    // println!("destf =***** {} *****=\n path=***** {} ******=",destf,path );
+                       dened=true;
+                    //    destf = "index.html".to_string();
+                       println!("erreur lors de la creation de dossier : {}", error);
+                }
+               }
+               let relative_url = format!("{}{}", url.clone(), link);
+               if !dened{
+                   download_a_file(relative_url.clone(), destf.clone());
+       
+                   if convert_links {
+                       // Conversion du lien dans le HTML
+                       updated_response = updated_response.replace(link, &format!(".{}",&link));
+                   }
+               }
+           }
         }
     }
 
@@ -119,6 +132,7 @@ pub fn mirror_url(url: &String, reject: bool, reject_value: String, convert_link
 pub fn download_a_file(path: String, destf: String) {
     let mut resp = reqwest::blocking::get(&path).unwrap();
     let mut dest_file = File::create(&destf).expect("error creating file");
+    // println!("dest_file $$$$$$$$ {} $$$$$$",destf);
     // Copie le contenu de la réponse dans le fichier de destination
     copy(&mut resp, &mut dest_file).expect("error copying response");
 }

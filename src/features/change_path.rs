@@ -16,26 +16,26 @@ fn expand_tilde(path: &str) -> String {
     path.to_string()
 }
 
-pub fn find_first_path_url(arg:String ,url : String)->String{
-    if url.contains("https://") || url.contains("http://"){
-        return url.split("https://").collect::<Vec<&str>>()[1].to_string();
-    }
-    return "".to_owned();
-}
+// pub fn find_first_path_url(_arg:String ,url : String)->String{
+//     if url.contains("https://") || url.contains("http://"){
+//         return url.split("https://").collect::<Vec<&str>>()[1].to_string();
+//     }
+//     return "".to_owned();
+// }
 
-pub fn find_path_url(arg:String, url : String)->String{
-    let domain = find_first_path_url(arg.clone(),url);
-    if domain.is_empty(){
-       return "".to_owned();
-    }
-    let urls: Vec<&str> = domain.split("/").collect();
-    let mut new_url = String::new();
-    new_url.push_str(&format!("{}/", arg));
-    for (i,v) in urls.iter().enumerate(){
-        new_url.push_str(v);
-        if i != urls.len()-1{
-            new_url.push('/');
-        }
-    }
-    return new_url;
-}
+// pub fn find_path_url(arg:String, url : String)->String{
+//     let domain = find_first_path_url(arg.clone(),url);
+//     if domain.is_empty(){
+//        return "".to_owned();
+//     }
+//     let urls: Vec<&str> = domain.split("/").collect();
+//     let mut new_url = String::new();
+//     new_url.push_str(&format!("{}/", arg));
+//     for (i,v) in urls.iter().enumerate(){
+//         new_url.push_str(v);
+//         if i != urls.len()-1{
+//             new_url.push('/');
+//         }
+//     }
+//     return new_url;
+// }

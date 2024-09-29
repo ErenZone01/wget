@@ -2,11 +2,11 @@ use std::env;
 
 use features::change_filename::change_filename;
 use features::change_path::change_path;
-use features::download::{download_multiple_url, found_file_name, SpeedUnit};
+use features::download::{ found_file_name, SpeedUnit};
 use features::multiple_link::take_all_link;
 use features::rate_limit::rate_limit;
-use untils::file::create_directory;
-use untils::is_flag::{add_http_if_missing, find_name_url};
+// use untils::file::create_directory;
+use untils::is_flag::add_http_if_missing;
 mod features {
     pub mod change_filename;
     pub mod change_path;
@@ -30,7 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut is_redirect = false;
     let mut is_multilink = false;
     let mut is_limitation = false;
-    let mut is_mirror = false;
+    let is_mirror = false;
     let mut limit: (usize, SpeedUnit) = (0, SpeedUnit::K);
 
     // Trouver tous les flags et les enregistrer
@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                 &mut content_size,
                                 limit,
                             ) {
-                                Ok(path) => {}
+                                Ok(_path) => {}
                                 Err(error) => {
                                     println!("Une erreur est survenue: {:?}", error);
                                 }
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 "--mirror" => {
                     let mut is_reject = (false, String::new());
                     //let mut is_exclude = (false, String::new());
-                    let mut is_convert = false;
+                    let is_convert = false;
                     let mut actif = false;
                     let argument: Vec<String> = env::args().collect();
                     if argument.len() == 3 {
@@ -177,7 +177,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 &mut content_size,
                 limit,
             ) {
-                Ok(path) => {}
+                Ok(_path) => {}
                 Err(error) => {
                     println!("Une erreur est survenue: {:?}", error);
                 }
