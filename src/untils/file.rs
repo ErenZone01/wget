@@ -1,5 +1,6 @@
 use std::{
     fs::{create_dir_all, File, OpenOptions},
+    // io::ErrorKind,
     path::Path,
 };
 
@@ -9,6 +10,7 @@ pub fn create_directory(file_path: String) -> Result<(File, String), Box<dyn std
     // Vérifier si le chemin est trop long (limite de 255 caractères, typique sur certains systèmes)
     if file_path.len() > 255 {
         let truncated_path = truncate_path(&file_path);
+        //println!("Le chemin est trop long, il a été tronqué : {}", truncated_path);
         return create_directory(truncated_path);  // Retenter avec le chemin tronqué
     }
 

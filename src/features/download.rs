@@ -1,4 +1,4 @@
-use crate::features::redirect_file;
+
 use crate::untils::file::create_directory;
 use crate::untils::is_flag::add_http_if_missing;
 use anyhow::Context;
@@ -11,6 +11,7 @@ use std::path::Path;
 use std::error::Error;
 use std::time::{Duration, Instant};
 
+// use super::change_path::find_path_url;
 
 #[derive(Clone, Copy, Debug)]
 pub enum SpeedUnit {
@@ -84,7 +85,7 @@ pub enum SpeedUnit {
     }
 
     // Initialiser la barre de progression
-    let pb = create_progress_bar(response.content_length());
+    let pb:Option<ProgressBar> = Some(create_progress_bar(response.content_length()));
 
     // Créer le fichier
     let (mut file, final_file_path) = match create_directory(file_path.clone()) {
@@ -97,30 +98,32 @@ pub enum SpeedUnit {
 
     // Téléchargement avec ou sans limitation
     if is_limitation {
-        download_with_limitation(limit, response, &mut file, pb)?;
-    } else {
-        if  is_redirect {
-             download_file_redirect(response, &mut file)?;
-        }else{
-            download_file(response, &mut file, pb)?;
+        if let Some(p)=pb{
+            download_with_limitation(limit, response, &mut file, p)?;
         }
+    } else {
+        // Affichage de la fin de téléchargement
+        let end_time = Local::now();
+        if is_redirect {
+            
+            eprintln!("Output will be written to \"wget-log\".");
+            download_file(response, &mut file, None)?;
+            display.push_str(&format!(
+                "\nDownloaded [{}]\nfinished at {}",
+                url,
+                end_time.format("%Y-%m-%d %H:%M:%S")
+            ));
+            let mut output_file = File::create("wget-log")?;
+            write!(output_file,"{}", display)?;
+        } else if !is_multilink {
+                download_file(response,&mut file, pb)?;
+            eprintln!(" ");
+            eprintln!("Downloaded [{}]", url);
+            eprintln!("finished at {}", end_time.format("%Y-%m-%d %H:%M:%S"));
+        }
+
     }
 
-    // Affichage de la fin de téléchargement
-    let end_time = Local::now();
-    if is_redirect {
-        display.push_str(&format!(
-            "\nDownloaded [{}]\nfinished at {}",
-            url,
-            end_time.format("%Y-%m-%d %H:%M:%S")
-        ));
-        eprintln!("Output will be written to \"wget-log\".");
-        redirect_file::redirect_file(display)
-    } else if !is_multilink {
-        eprintln!(" ");
-        eprintln!("Downloaded [{}]", url);
-        eprintln!("finished at {}", end_time.format("%Y-%m-%d %H:%M:%S"));
-    }
 
     Ok(final_file_path)
 }
@@ -175,7 +178,7 @@ fn create_progress_bar(content_length: Option<u64>) -> ProgressBar {
 }
 
 // Télécharger sans limitation
-fn download_file(mut response: reqwest::blocking::Response, file: &mut File, pb: ProgressBar) -> Result<(), Box<dyn Error>> {
+fn download_file(mut response: reqwest::blocking::Response, file: &mut File, pb: Option<ProgressBar>) -> Result<(), Box<dyn Error>> {
     let mut downloaded = 0;
     let mut buffer = [0; 8192];
     loop {
@@ -189,29 +192,33 @@ fn download_file(mut response: reqwest::blocking::Response, file: &mut File, pb:
         file.write_all(&buffer[..bytes_read])
             .context("Failed to write to file")?;
         downloaded += bytes_read as u64;
-        pb.set_position(downloaded);
-    }
-
-    pb.finish_with_message("done");
-    Ok(())
-}
-
-fn download_file_redirect(mut response: reqwest::blocking::Response, file: &mut File) -> Result<(), Box<dyn Error>> {
-    let mut buffer = [0; 8192];
-    loop {
-        let bytes_read = response
-            .read(&mut buffer)
-            .context("Failed to read response")?;
-        if bytes_read == 0 {
-            break;
+        if let Some(ref p)=pb{
+            p.set_position(downloaded);
         }
-
-        file.write_all(&buffer[..bytes_read])
-            .context("Failed to write to file")?;
+        
     }
-
+    if let Some(p)=pb{
+        p.finish_with_message("done");
+    }
     Ok(())
 }
+
+// fn download_file_redirect(mut response: reqwest::blocking::Response, file: &mut File) -> Result<(), Box<dyn Error>> {
+//     let mut buffer = [0; 8192];
+//     loop {
+//         let bytes_read = response
+//             .read(&mut buffer)
+//             .context("Failed to read response")?;
+//         if bytes_read == 0 {
+//             break;
+//         }
+
+//         file.write_all(&buffer[..bytes_read])
+//             .context("Failed to write to file")?;
+//     }
+
+//     Ok(())
+// }
 // Télécharger avec limitation
 fn download_with_limitation(
     limit: (usize, SpeedUnit),
@@ -277,3 +284,117 @@ pub fn found_file_name(url: &str) -> Option<String> {
     Some(file_name.to_string())
 }
 
+
+// pub fn download_multiple_url(
+//     arg: String,
+//     is_redirect: bool,
+//     is_multilink: bool,
+//     content_size: &mut Vec<usize>,
+//     is_limitation: bool,
+//     limit: (usize, SpeedUnit),
+// ) {
+//     let mut urls: Vec<String> = vec![arg.clone()]; // Initialisation de la liste des URLs
+//     let mut i = 0;
+
+//     let mut is_reject = (false, String::new());
+//     let mut is_exclude = (false, String::new());
+//     let mut is_convert = (false, String::new());
+
+//     //trouver les options du mirror
+//     let args: Vec<String> = env::args().collect();
+//     let mut actif = false;
+//     for v in args {
+//         if actif{
+//             match untils::is_flag::is_flag(&v){
+//                 Some(res)=>{ match res{
+//                     "--reject" | "-R"=>{is_reject=(true, v.split("=").collect::<Vec<&str>>()[1].to_owned())},
+//                     "--exclude" | "-X"=>{is_exclude=(true, v.split("=").collect::<Vec<&str>>()[1].to_owned())},
+//                     "--convert-links"=>{is_convert=(true, v.split("=").collect::<Vec<&str>>()[1].to_owned())},
+//                     _=>{}
+//                 } {
+                    
+//                 }},
+//                 None=>{}
+//             }
+//         }
+//         if v == "--mirror"{
+//             actif = true;
+//         }
+//     }    
+
+//     while i < urls.len() {
+//         let path = if i == 0 {
+//             format!("{}/index.html", arg) // Chemin du premier téléchargement
+//         } else {
+//             find_path_url(arg.clone(), urls[i].clone()) // Pour les URLs suivantes
+//         };
+
+//         if path.is_empty() {
+//             println!("je suis out ! {} ", urls[i]);
+//             continue; // Si le chemin est vide, arrêter la boucle
+//         }
+
+//         // Télécharger le fichier et traiter les erreurs
+//         match download(
+//             urls[i].as_str(),
+//             Some(path.clone()),
+//             None,
+//             is_redirect,
+//             is_multilink,
+//             is_limitation,
+//             content_size,
+//             limit,
+//         )
+//         {
+//             Ok(path) => {
+//                 // Récupérer les liens dans le fichier téléchargé
+//                 match take_all_link(path.clone(), true) {
+//                     Ok(links) => {
+//                         for v in links {
+//                             // Normalisation des liens relatifs si nécessaire
+//                             let normalized_link = if v.starts_with("http") || v.starts_with("https")
+//                             {
+//                                 v
+//                             } else {
+//                                 format!("https://{}{}", arg, v) // Gérer les liens relatifs
+//                             };
+//                             // Ajouter uniquement les nouvelles URLs
+//                             if !urls.contains(&normalized_link) {
+//                                 //verfier les options
+//                                 if is_reject.0 {
+//                                     let mut all_restriction : Vec<&str> = Vec::new();
+//                                     if is_reject.1.contains(','){
+//                                         all_restriction = is_reject.1.split(',').collect();
+//                                     }else{
+//                                         all_restriction.push(&is_reject.1);
+//                                     }
+                                    
+//                                     for v in all_restriction  {
+//                                         if !v.ends_with(&is_reject.1){
+//                                              urls.push(normalized_link.clone());
+//                                         }
+//                                     }
+//                                 }else{
+//                                     urls.push(normalized_link);
+//                                 }
+
+//                             }
+//                         }
+//                     }
+//                     Err(error) => {
+//                         println!("Erreur lors de la récupération des liens: {}", error);
+//                         break;
+//                     }
+//                 }
+//             }
+//             Err(error) => {
+//                 println!("Le téléchargement a échoué: {}", error);
+//                 break;
+//             }
+//         }
+
+//         // Incrémenter l'indice après traitement de toutes les URLs ajoutées
+//         i += 1;
+//         }
+
+// }

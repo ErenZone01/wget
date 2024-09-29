@@ -1,13 +1,13 @@
 use std::env;
-use features::async_download::download_files_from_list;
+
 use features::change_filename::change_filename;
 use features::change_path::change_path;
-use features::download::SpeedUnit;
+use features::download::{ found_file_name, SpeedUnit};
 use features::multiple_link::take_all_link;
 use features::rate_limit::rate_limit;
-use tokio::runtime::Runtime;
+// use untils::file::create_directory;
+use untils::is_flag::add_http_if_missing;
 mod features {
-    pub mod async_download;
     pub mod change_filename;
     pub mod change_path;
     pub mod download;
@@ -21,9 +21,8 @@ mod untils {
     pub mod is_flag;
 }
 use features::mirror::mirror_url;
-use untils::is_flag::add_http_if_missing;
 
- fn main() -> anyhow::Result<()>{
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Récupérer un itérateur sur les arguments
     let args: Vec<String> = env::args().collect();
     let mut file_name: Option<String> = None;
@@ -31,6 +30,7 @@ use untils::is_flag::add_http_if_missing;
     let mut is_redirect = false;
     let mut is_multilink = false;
     let mut is_limitation = false;
+    let is_mirror = false;
     let mut limit: (usize, SpeedUnit) = (0, SpeedUnit::K);
 
     // Trouver tous les flags et les enregistrer
@@ -63,22 +63,43 @@ use untils::is_flag::add_http_if_missing;
                 }
                 "-i" => {
                     // Handle -i flag
-                     // Gestion du mode multi-lien
                     let filename = change_filename(arg.to_string());
-                    //let dir = PathBuf::from(filename.clone().unwrap());
-                    let res = take_all_link(filename.clone().unwrap(), false);
-
-                    if let Ok(links) = res {
+                    let res = take_all_link(filename.unwrap(), is_mirror);
+                    let mut display = String::new();
+                    if res.is_ok() {
                         is_multilink = true;
-                        
-                        // Créer un runtime pour l'appel async
-                        let rt = Runtime::new()?;
-                        rt.block_on(async {
-                            download_files_from_list(links).await
-                        })?;
+                        for v in res.unwrap() {
+                            // Ajouter http:// ou https:// si nécessaire
+                            let url = add_http_if_missing(v.as_str());
+                            display.push_str(
+                                &format!("finished {:?}\n", found_file_name(url.as_str()).unwrap())
+                                    .as_str()
+                                    .replace("\"", ""),
+                            );
+                            match features::download::download(
+                                url.as_str(),
+                                file_name.clone(),
+                                directory_saved.clone(),
+                                is_redirect,
+                                is_multilink,
+                                is_limitation,
+                                &mut content_size,
+                                limit,
+                            ) {
+                                Ok(_path) => {}
+                                Err(error) => {
+                                    println!("Une erreur est survenue: {:?}", error);
+                                }
+                            }
+                        }
+                        println!("content size : {:?}", content_size);
+
+                        println!("{}", display);
                     }
                 }
                 "--mirror" => {
+                    let mut is_reject = (false, String::new());
+                    //let mut is_exclude = (false, String::new());
                     let is_convert = false;
                     let mut actif = false;
                     let argument: Vec<String> = env::args().collect();
@@ -95,15 +116,19 @@ use untils::is_flag::add_http_if_missing;
                                     Some(res) => {
                                         match res {
                                             "--reject" | "-R" | "--exclude" | "-X" => {
+                                                is_reject = (
+                                                    true,
+                                                    v.split("=").collect::<Vec<&str>>()[1]
+                                                        .to_owned(),
+                                                );
                                                 let url = argument[argument.len() - 1].clone();
                                                 if url.contains("http://")
                                                     || url.contains("https://")
                                                 {
                                                     mirror_url(
                                                         &url,
-                                                        true,
-                                                        v.split("=").collect::<Vec<&str>>()[1]
-                                                            .to_owned(),
+                                                        is_reject.0,
+                                                        is_reject.1,
                                                         is_convert,
                                                     );
                                                     break;
@@ -152,7 +177,7 @@ use untils::is_flag::add_http_if_missing;
                 &mut content_size,
                 limit,
             ) {
-                Ok(_) => {}
+                Ok(_path) => {}
                 Err(error) => {
                     println!("Une erreur est survenue: {:?}", error);
                 }
